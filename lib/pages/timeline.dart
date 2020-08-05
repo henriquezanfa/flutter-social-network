@@ -17,6 +17,31 @@ class _TimelineState extends State<Timeline> {
     super.initState();
   }
 
+  createUser() {
+    userRef.document('sdasdasd').setData({
+      'username': 'Maria',
+      'postsCount': 0,
+      'isAdmin': false,
+    });
+  }
+
+  updateUser() async {
+    final doc = await userRef.document('H6FoRKZRRJogez8EPge3').get();
+
+    if (doc.exists)
+      doc.reference.updateData({
+        'username': 'BOB',
+        'postsCount': 0,
+        'isAdmin': false,
+      });
+  }
+
+  deleteUser() async {
+    final doc = await userRef.document('H6FoRKZRRJogez8EPge3').get();
+
+    if (doc.exists) doc.reference.delete();
+  }
+
   @override
   Widget build(context) {
     return Scaffold(
