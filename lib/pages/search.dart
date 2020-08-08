@@ -1,6 +1,12 @@
 import 'package:animated_icon_button/animated_icon_button.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+import '../models/user.dart';
+import '../widgets/progress.dart';
+import 'home.dart';
 
 class Search extends StatefulWidget {
   @override
@@ -8,8 +14,28 @@ class Search extends StatefulWidget {
 }
 
 class _SearchState extends State<Search> with SingleTickerProviderStateMixin {
-  bool _searchHasData = false;
+  bool _searchHasData;
   AnimationController _searchIconAnimationController;
+
+  Future<QuerySnapshot> searchResultsFuture;
+  final _searchEditingContrroller = TextEditingController();
+
+  handleSeach(String query) {
+    Future<QuerySnapshot> users = userRef
+        .where('displayName', isGreaterThanOrEqualTo: query)
+        .getDocuments();
+
+    setState(() {
+      searchResultsFuture = users;
+    });
+  }
+
+  clearSeach() {
+    if (_searchHasData) {
+      _searchEditingContrroller.clear();
+      _searchIconAnimationController.reverse();
+    }
+  }
 
   @override
   void initState() {
@@ -19,6 +45,8 @@ class _SearchState extends State<Search> with SingleTickerProviderStateMixin {
       duration: Duration(milliseconds: 200),
       reverseDuration: Duration(milliseconds: 200),
     );
+
+    _searchHasData = false;
   }
 
   @override
@@ -27,9 +55,31 @@ class _SearchState extends State<Search> with SingleTickerProviderStateMixin {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         appBar: buildSearchField(),
-        body: buildNoContent(),
+        body: searchResultsFuture == null
+            ? buildNoContent()
+            : buildSearchResults(),
         backgroundColor: Theme.of(context).primaryColor.withOpacity(0.7),
       ),
+    );
+  }
+
+  buildSearchResults() {
+    return FutureBuilder(
+      future: searchResultsFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return circularProgress();
+
+        List<UserResult> searchResults = [];
+        snapshot.data.documents.forEach((doc) {
+          User user = User.fromDocument(doc);
+          UserResult searchResult = UserResult(user: user);
+          searchResults.add(searchResult);
+        });
+
+        return ListView(
+          children: searchResults,
+        );
+      },
     );
   }
 
@@ -37,6 +87,7 @@ class _SearchState extends State<Search> with SingleTickerProviderStateMixin {
     return AppBar(
       backgroundColor: Colors.white,
       title: TextFormField(
+        controller: _searchEditingContrroller,
         textAlignVertical: TextAlignVertical.center,
         onChanged: (value) {
           setState(() {
@@ -50,28 +101,18 @@ class _SearchState extends State<Search> with SingleTickerProviderStateMixin {
           hintText: "Search for an user",
           filled: true,
           border: InputBorder.none,
-          prefixIcon: Icon(
-            Icons.account_circle,
-            // size: 28,
-          ),
+          prefixIcon: Icon(Icons.account_circle),
           suffixIcon: AnimatedIconButton(
             animationController: _searchIconAnimationController,
             size: 24,
-            onPressed: () {},
-            endIcon: Icon(
-              Icons.close,
-              color: Colors.black38,
-              // size: 20,
-            ),
-            startIcon: Icon(
-              Icons.search,
-              // color: Theme.of(context).accentColor,
-              // size: 20,
-            ),
+            onPressed: clearSeach,
+            endIcon: Icon(Icons.close, color: Colors.black38),
+            startIcon: Icon(Icons.search),
             startBackgroundColor: Colors.transparent,
             endBackgroundColor: Colors.transparent,
           ),
         ),
+        onFieldSubmitted: handleSeach,
       ),
     );
   }
@@ -106,8 +147,43 @@ class _SearchState extends State<Search> with SingleTickerProviderStateMixin {
 }
 
 class UserResult extends StatelessWidget {
+  final User user;
+
+  const UserResult({Key key, this.user}) : super(key: key);
   @override
   Widget build(BuildContext context) {
-    return Text("User Result");
+    return Container(
+      color: Theme.of(context).primaryColor.withOpacity(0.7),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () => print('tapped'),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.grey,
+                backgroundImage: CachedNetworkImageProvider(user.photoUrl),
+              ),
+              title: Text(
+                user.displayName,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                user.username,
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          Divider(
+            height: 2.0,
+            color: Theme.of(context).primaryColor.withOpacity(0.5),
+          ),
+        ],
+      ),
+    );
   }
 }
