@@ -129,7 +129,7 @@ class _HomeState extends State<Home> {
         children: [
           Timeline(),
           ActivityFeed(),
-          Upload(),
+          Upload(currentUser: currentUser),
           Search(),
           Profile(),
         ],
